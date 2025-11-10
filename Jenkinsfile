@@ -34,11 +34,26 @@ pipeline {
             steps {
                 dir('EasyShop-Ecommerce') {
                     script {
-                        def ip = sh(script: 'terraform output instance_public_ip', returnStdout: true).trim()
-                        echo "Your app is running at http://${ip}:5173"
+                        def ipOutput = bat(
+                            script: 'terraform output -raw instance_public_ip',
+                            returnStdout: true
+                        ).trim()
+                        echo "✅ Your app is running at: http://${ipOutput}:5173"
                     }
                 }
             }
+        }
+    }
+
+    post {
+        success {
+            echo "🎉 Terraform applied successfully! Your infrastructure is ready."
+        }
+        failure {
+            echo "❌ Build failed. Check the logs for details."
+        }
+        always {
+            echo "🧹 Cleaning up temporary files..."
         }
     }
 }

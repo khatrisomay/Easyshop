@@ -1,4 +1,4 @@
-hdpipeline {
+pipeline {
     agent any
 
     environment {

@@ -2,20 +2,22 @@ pipeline {
     agent any
 
     environment {
-        AWS_REGION = 'eu-north-1'
+        AWS_ACCESS_KEY_ID     = credentials('aws-access-key-id')
+        AWS_SECRET_ACCESS_KEY = credentials('aws-secret-access-key')
+        AWS_DEFAULT_REGION     = 'eu-north-1'
     }
 
     stages {
-        stage('Checkout') {
+        stage('Check AWS Access') {
             steps {
-                checkout scm
+                sh 'aws sts get-caller-identity'
             }
         }
 
         stage('Terraform Init') {
             steps {
                 dir('EasyShop-Ecommerce') {
-                    bat 'terraform init'
+                    sh 'terraform init'
                 }
             }
         }
@@ -23,40 +25,19 @@ pipeline {
         stage('Terraform Apply') {
             steps {
                 dir('EasyShop-Ecommerce') {
-                    bat 'terraform apply -auto-approve'
+                    sh 'terraform apply -auto-approve'
                 }
             }
         }
 
-        stage('Get Instance IP') {
+        stage('Output Instance IP') {
             steps {
                 dir('EasyShop-Ecommerce') {
                     script {
-                        def ip = bat(script: 'terraform output -raw instance_public_ip', returnStdout: true).trim()
-                        echo "🚀 Application deployed successfully!"
-                        echo "🌍 Access your app here → http://${ip}:5173"
+                        def ip = sh(script: 'terraform output instance_public_ip', returnStdout: true).trim()
+                        echo "Your app is running at http://${ip}:5173"
                     }
                 }
-            }
-        }
-
-        stage('Cleanup Docker') {
-            steps {
-                echo '🧹 Cleaning up unused Docker resources...'
-                bat 'docker system prune -a -f --volumes'
-            }
-        }
-    }
-
-    post {
-        always {
-            echo '🧽 Final cleanup step to ensure no leftovers...'
-            bat 'docker system prune -f'
-        }
-        failure {
-            echo '⚠️ Build failed — destroying Terraform resources...'
-            dir('EasyShop-Ecommerce') {
-                bat 'terraform destroy -auto-approve || exit 0'
             }
         }
     }

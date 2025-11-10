@@ -10,14 +10,14 @@ pipeline {
     stages {
         stage('Check AWS Access') {
             steps {
-                sh 'aws sts get-caller-identity'
+                bat 'aws sts get-caller-identity'
             }
         }
 
         stage('Terraform Init') {
             steps {
                 dir('EasyShop-Ecommerce') {
-                    sh 'terraform init'
+                    bat 'terraform init'
                 }
             }
         }
@@ -25,7 +25,7 @@ pipeline {
         stage('Terraform Apply') {
             steps {
                 dir('EasyShop-Ecommerce') {
-                    sh 'terraform apply -auto-approve'
+                    bat 'terraform apply -auto-approve'
                 }
             }
         }

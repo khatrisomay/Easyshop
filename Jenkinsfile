@@ -2,31 +2,13 @@ pipeline {
     agent any
 
     environment {
-        ECR_REPO = '642533326238.dkr.ecr.eu-north-1.amazonaws.com/minorproject'
         AWS_REGION = 'eu-north-1'
-        DOCKER_IMAGE_TAG = "${env.BUILD_NUMBER}"
     }
 
     stages {
         stage('Checkout') {
             steps {
                 checkout scm
-            }
-        }
-
-        stage('Build Docker Image') {
-            steps {
-                bat 'docker build -t minorproject .'
-            }
-        }
-
-        stage('Push to ECR') {
-            steps {
-                bat "aws ecr get-login-password --region %AWS_REGION% | docker login --username AWS --password-stdin %ECR_REPO%"
-                bat "docker tag minorproject:latest %ECR_REPO%:%DOCKER_IMAGE_TAG%"
-                bat "docker tag minorproject:latest %ECR_REPO%:latest"
-                bat "docker push %ECR_REPO%:%DOCKER_IMAGE_TAG%"
-                bat "docker push %ECR_REPO%:latest"
             }
         }
 
@@ -41,15 +23,41 @@ pipeline {
         stage('Terraform Apply') {
             steps {
                 dir('EasyShop-Ecommerce') {
-                    bat 'terraform apply --auto-approve'
+                    bat 'terraform apply -auto-approve'
                 }
+            }
+        }
+
+        stage('Get Instance IP') {
+            steps {
+                dir('EasyShop-Ecommerce') {
+                    script {
+                        def ip = bat(script: 'terraform output -raw instance_public_ip', returnStdout: true).trim()
+                        echo "🚀 Application deployed successfully!"
+                        echo "🌍 Access your app here → http://${ip}:5173"
+                    }
+                }
+            }
+        }
+
+        stage('Cleanup Docker') {
+            steps {
+                echo '🧹 Cleaning up unused Docker resources...'
+                bat 'docker system prune -a -f --volumes'
             }
         }
     }
 
     post {
         always {
+            echo '🧽 Final cleanup step to ensure no leftovers...'
             bat 'docker system prune -f'
+        }
+        failure {
+            echo '⚠️ Build failed — destroying Terraform resources...'
+            dir('EasyShop-Ecommerce') {
+                bat 'terraform destroy -auto-approve || exit 0'
+            }
         }
     }
 }
